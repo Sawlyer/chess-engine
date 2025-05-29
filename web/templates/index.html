@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chess Engine</title>
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="/js/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <link rel="stylesheet" href="/css/chessboard-1.0.0.min.css">
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .container {
+            background-color: #2d2d2d;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            margin: 20px;
+        }
+
+        .pgn-container {
+            background-color: #2d2d2d;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            margin: 20px;
+            min-width: 300px;
+        }
+
+        .pgn-text {
+            background-color: #1a1a1a;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+
+        #board {
+            width: 400px;
+            margin: 20px auto;
+        }
+
+        #status {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 18px;
+            color: #e0e0e0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button, select {
+            background-color: #4a4a4a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover, select:hover {
+            background-color: #5a5a5a;
+        }
+
+        button:active {
+            background-color: #3a3a3a;
+        }
+
+        select {
+            padding: 10px;
+            min-width: 120px;
+        }
+
+        .title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .board-container {
+            position: relative;
+            width: 400px;
+            margin: 20px auto;
+        }
+
+        .flip-button {
+            background-color: #4a4a4a;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin: 10px 0;
+        }
+
+        .flip-button:hover {
+            background-color: #5a5a5a;
+        }
+
+        .flip-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="container">
+            <div class="title">Chess Engine</div>
+            <div class="board-container">
+                <div id="board"></div>
+            </div>
+            <div class="controls">
+                <select id="colorSelect" onchange="changeColor()">
+                    <option value="w">Blancs</option>
+                    <option value="b">Noirs</option>
+                </select>
+                <button onclick="resetGame()">Nouvelle partie</button>
+            </div>
+            <div class="flip-container">
+                <button class="flip-button" onclick="flipBoard()">Retourner le plateau</button>
+            </div>
+            <div id="status">À vous de jouer !</div>
+        </div>
+
+        <div class="pgn-container">
+            <div class="title">PGN de la partie</div>
+            <div id="pgn-display" class="pgn-text"></div>
+            <button onclick="copyPgn()">Copier PGN</button>
+        </div>
+    </div>
+
+    <script>
+        var game = new Chess();
+        var board = null;
+        var statusEl = document.getElementById('status');
+        var colorSelect = document.getElementById('colorSelect');
+        var pgnDisplay = document.getElementById('pgn-display');
+
+        function formatPgn(pgn) {
+            // Séparer les coups
+            let moves = pgn.split(' ');
+            let formattedMoves = [];
+            
+            // Regrouper les coups par paires (blancs + noirs)
+            for (let i = 0; i < moves.length; i += 2) {
+                if (i + 1 < moves.length) {
+                    formattedMoves.push(`${Math.floor(i/2) + 1}. ${moves[i]} ${moves[i+1]}`);
+                } else if (moves[i]) {
+                    formattedMoves.push(`${Math.floor(i/2) + 1}. ${moves[i]}`);
+                }
+            }
+            
+            return formattedMoves.join('\n');
+        }
+
+        function updatePgn() {
+            pgnDisplay.textContent = formatPgn(game.pgn());
+        }
+
+        function copyPgn() {
+            navigator.clipboard.writeText(game.pgn()).then(() => {
+                alert('PGN copié dans le presse-papiers !');
+            }).catch(err => {
+                console.error('Erreur lors de la copie :', err);
+            });
+        }
+
+        function onDragStart(source, piece) {
+            if (game.game_over() || 
+                (game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+        }
+
+        function makeAIMove(move) {
+            game.move(move);
+            board.position(game.fen(), false);
+            updateStatus();
+            updatePgn();
+        }
+
+        function onDrop(source, target) {
+            const move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q'
+            });
+
+            if (move === null) return 'snapback';
+
+            board.position(game.fen(), false);
+            updateStatus();
+            updatePgn();
+
+            if (!game.game_over()) {
+                statusEl.textContent = 'L\'IA réfléchit...';
+                fetch('/move', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        fen: game.fen()
+                    })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.move) {
+                        makeAIMove({
+                            from: data.move.slice(0,2),
+                            to: data.move.slice(2,4),
+                            promotion: data.move.slice(4) || undefined
+                        });
+                    }
+                });
+            }
+        }
+
+        function updateStatus() {
+            let status = '';
+            if (game.in_checkmate()) {
+                status = 'Échec et mat !';
+            } else if (game.in_draw()) {
+                status = 'Partie nulle !';
+            } else if (game.in_check()) {
+                status = 'Échec !';
+            } else {
+                status = game.turn() === 'w' ? 'À vous de jouer !' : 'L\'IA réfléchit...';
+            }
+            statusEl.textContent = status;
+        }
+
+        function changeColor() {
+            const color = colorSelect.value;
+            const orientation = color === 'w' ? 'white' : 'black';
+            board.orientation(orientation);
+            if (color === 'b') {
+                statusEl.textContent = 'L\'IA réfléchit...';
+                fetch('/move', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        fen: game.fen()
+                    })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.move) {
+                        makeAIMove({
+                            from: data.move.slice(0,2),
+                            to: data.move.slice(2,4),
+                            promotion: data.move.slice(4) || undefined
+                        });
+                    }
+                });
+            }
+        }
+
+        function flipBoard() {
+            const currentOrientation = board.orientation();
+            const newOrientation = currentOrientation === 'white' ? 'black' : 'white';
+            board.orientation(newOrientation);
+            colorSelect.value = newOrientation === 'white' ? 'w' : 'b';
+        }
+
+        function resetGame() {
+            game = new Chess();
+            board.position('start', false);
+            updateStatus();
+            updatePgn();
+        }
+
+        var config = {
+            position: 'start',
+            draggable: true,
+            pieceTheme: '/img/chesspieces/wikipedia/{piece}.png',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            animationDuration: 0,
+            orientation: 'white'
+        }
+        board = Chessboard('board', config);
+        updatePgn(); // Initialiser l'affichage PGN
+    </script>
+</body>
+</html>
