@@ -1,15 +1,18 @@
-from torch.utils.data import Dataset
+import torch
 
-
-class ChessDataset(Dataset):
-
-    def __init__(self, X, y):
+class ChessDataset(torch.utils.data.Dataset):
+    def __init__(self, X, p, v):
         self.X = X
-        self.y = y
-
+        self.p = p
+        self.v = v
     def __len__(self):
         return len(self.X)
-
     def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
+        return (
+            self.X[idx].float(),    # input images
+            self.p[idx].long(),     # policy labels
+            self.v[idx].float()     # value labels
+        )
+
+
 
