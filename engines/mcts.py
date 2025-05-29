@@ -23,6 +23,22 @@ class MCTS:
         visits = [self.N[(state, mv)] for mv in moves]
         best = moves[visits.index(max(visits))]
         return best
+    
+    def get_policy(self, root_board, simulations=400):
+        """
+        Exécute MCTS depuis root_board, et renvoie :
+          - moves: liste de chess.Move
+          - pi:     np.array de même longueur, pi[i] = N(root, moves[i]) / sum_j N(root, moves[j])
+        """
+        for _ in range(simulations):
+            self._simulate(root_board.copy())
+
+        state = root_board.fen()
+        moves = self.children[state]      # liste de chess.Move
+        counts = np.array([self.N[(state, mv)] for mv in moves], dtype=np.float32)
+        total = counts.sum() or 1.0
+        pi = counts / total
+        return moves, pi
 
     def _simulate(self, board):
         state = board.fen()

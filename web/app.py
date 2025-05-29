@@ -55,24 +55,22 @@ def serve_model(filename):
 @app.route('/move', methods=['POST'])
 def move():
     data = request.json
-    fen = data['fen']
-    board = chess.Board(fen)
+    board = chess.Board(data['fen'])
 
-    # Préparer l'entrée pour le modèle
-    matrix = board_to_matrix(board)
+    # Préparer l'entrée
+    matrix   = board_to_matrix(board)
     X_tensor = torch.tensor(matrix, dtype=torch.float32).unsqueeze(0).to(device)
 
-    # Faire la prédiction
+    # Inférence
     with torch.no_grad():
-        output = model(X_tensor)
-        move_idx = output.argmax().item()
-        ai_move = int_to_move[move_idx]
+        logits, _ = model(X_tensor)                   # ← ici
+        move_idx  = logits.argmax(dim=1).item()       # ← et ici
+        ai_move   = int_to_move[move_idx]
 
     # Vérifier si le coup est légal
     try:
         board.push_uci(ai_move)
     except:
-        # Si le coup n'est pas légal, prendre un coup aléatoire légal
         legal_moves = list(board.legal_moves)
         if not legal_moves:
             return jsonify({'move': None, 'fen': board.fen(), 'status': 'gameover'})
@@ -80,6 +78,7 @@ def move():
         board.push_uci(ai_move)
 
     return jsonify({'move': ai_move, 'fen': board.fen(), 'status': 'ok'})
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000) 

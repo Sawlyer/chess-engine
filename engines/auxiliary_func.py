@@ -23,26 +23,40 @@ def board_to_matrix(board: chess.Board):
     return matrix
 
 
-def create_input_and_value(games, normalize_by=9.0):
-    X, y_policy, y_value = [], [], []
+def create_input_and_value(games, alpha=0.5, normalize_by=9.0):
+    X, y_policy_str, y_value = [], [], []
     for game in games:
         board = game.board()
+        # 1) issue finale de la partie
+        result_str = game.headers.get("Result", "1/2-1/2")
+        if result_str == "1-0":
+            game_result =  1.0
+        elif result_str == "0-1":
+            game_result = -1.0
+        else:
+            game_result =  0.0
+
         for move in game.mainline_moves():
-            # encoding policy
-            y_policy.append(move.uci())
-            # encoding value
-            before = material_count(board)
-            board.push(move)
-            after = material_count(board)
-            # différence normalisée
-            y_value.append((after - before) / normalize_by)
             # input
             X.append(board_to_matrix(board))
-            
+
+            # policy
+            y_policy_str.append(move.uci())
+
+            # matériel avant / après
+            before = material_count(board)
+            board.push(move)
+            after  = material_count(board)
+            material_diff = (after - before) / normalize_by
+
+            # valeur mixte
+            y_value.append(alpha * material_diff + (1 - alpha) * game_result)
+
+        # on pourrait pop tous les coups, mais board est cloné de toute façon
     return (
-        np.array(X, dtype=np.float32),
-        np.array(y_policy, dtype=object),  # strings pour l'instant
-        np.array(y_value, dtype=np.float32)
+        np.array(X,         dtype=np.float32),
+        np.array(y_policy_str, dtype=object),
+        np.array(y_value,   dtype=np.float32)
     )
 
 _piece_values = {
