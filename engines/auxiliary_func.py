@@ -1,6 +1,5 @@
 import numpy as np
 from chess import Board
-from multiprocessing import Pool, cpu_count
 
 
 def board_to_matrix(board: Board):
