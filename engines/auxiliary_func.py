@@ -1,5 +1,6 @@
 import numpy as np
 from chess import Board
+from multiprocessing import Pool, cpu_count
 
 
 def board_to_matrix(board: Board):
@@ -23,15 +24,28 @@ def board_to_matrix(board: Board):
     return matrix
 
 
-def create_input_for_nn(games):
+def process_game(game):
     X = []
     y = []
-    for game in games:
-        board = game.board()
-        for move in game.mainline_moves():
-            X.append(board_to_matrix(board))
-            y.append(move.uci())
-            board.push(move)
+    board = game.board()
+    for move in game.mainline_moves():
+        X.append(board_to_matrix(board))
+        y.append(move.uci())
+        board.push(move)
+    return X, y
+
+def create_input_for_nn(games):
+    # Use multiprocessing to process games in parallel
+    with Pool(cpu_count()) as pool:
+        results = pool.map(process_game, games)
+
+    # Combine results from all processes
+    X = []
+    y = []
+    for result in results:
+        X.extend(result[0])
+        y.extend(result[1])
+
     return np.array(X, dtype=np.float32), np.array(y)
 
 
